@@ -7,8 +7,10 @@ import {
   parseIntField,
   parseTags,
   type RawCV,
+  RawCVSchema,
   type RawProjectExp,
   type SearchResponse,
+  SearchResponseSchema,
 } from '../flowcase/flowcase.js';
 import { log } from '../log.js';
 import { loadSecret, type SecretsLoader } from '../secrets/secrets.js';
@@ -195,7 +197,7 @@ async function fetchCVWithRetry(cvURL: string, auth: string): Promise<RawCV> {
       await delay((attempt + 1) * 1000);
     }
     try {
-      return await doRequest<RawCV>('GET', cvURL, auth);
+      return await doRequest('GET', cvURL, auth, RawCVSchema);
     } catch (e) {
       lastErr = e;
       const msg = e instanceof Error ? e.message : String(e);
@@ -284,7 +286,13 @@ async function searchSkill(
       must: [{ technology_skill: { tag: v } }],
       size: RESULTS_PER_SKILL,
     };
-    const resp = await doRequest<SearchResponse>('POST', `${api}/v4/search`, auth, tagPayload);
+    const resp = await doRequest(
+      'POST',
+      `${api}/v4/search`,
+      auth,
+      SearchResponseSchema,
+      tagPayload,
+    );
     for (const h of resp.cvs ?? []) {
       if (!seen.has(h.cv.user_id)) {
         seen.add(h.cv.user_id);
@@ -300,7 +308,13 @@ async function searchSkill(
     must: [{ query: { value: skill } }],
     size: RESULTS_PER_SKILL,
   };
-  const resp = await doRequest<SearchResponse>('POST', `${api}/v4/search`, auth, queryPayload);
+  const resp = await doRequest(
+    'POST',
+    `${api}/v4/search`,
+    auth,
+    SearchResponseSchema,
+    queryPayload,
+  );
   return resp.cvs ?? [];
 }
 

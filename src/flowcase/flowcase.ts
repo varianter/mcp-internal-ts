@@ -2,6 +2,8 @@
 // It handles JSON parsing of FlowCase's inconsistent field types,
 // HTTP communication, and shared formatting helpers.
 
+import { z } from 'zod';
+
 // ── HTTP helpers ───────────────────────────────────────────────────────────────
 
 export function baseURL(org: string): string {
@@ -19,12 +21,13 @@ export function truncate(s: string, n: number): string {
   return `${s.slice(0, n)}…`;
 }
 
-export async function doRequest<T>(
+export async function doRequest<S extends z.ZodTypeAny>(
   method: string,
   url: string,
   auth: string,
+  schema: S,
   body?: unknown,
-): Promise<T> {
+): Promise<z.infer<S>> {
   const init: RequestInit = {
     method,
     headers: {
@@ -43,7 +46,7 @@ export async function doRequest<T>(
     throw new Error(`HTTP ${resp.status}: ${truncate(text, 200)}`);
   }
 
-  return JSON.parse(text) as T;
+  return schema.parse(JSON.parse(text));
 }
 
 // ── Custom type parsers ────────────────────────────────────────────────────────
@@ -84,125 +87,143 @@ export function textString(val: unknown): string {
   return '';
 }
 
-// ── Search API types ───────────────────────────────────────────────────────────
+// ── Search API schemas ─────────────────────────────────────────────────────────
 
-export interface SearchResponse {
-  cvs: SearchHit[];
-}
+export const SearchCVSchema = z.object({
+  user_id: z.string(),
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  default: z.boolean(),
+  title: z.unknown(), // Text (localised or plain string)
+});
 
-export interface SearchHit {
-  cv: SearchCV;
-}
+export const SearchHitSchema = z.object({
+  cv: SearchCVSchema,
+});
 
-export interface SearchCV {
-  user_id: string;
-  id: string;
-  name: string;
-  email: string;
-  default: boolean;
-  title: unknown; // Text
-}
+export const SearchResponseSchema = z.object({
+  cvs: z.array(SearchHitSchema),
+});
 
-// ── CV detail types ────────────────────────────────────────────────────────────
-// All fields use `unknown` for the polymorphic types (Int, Text, Tags).
-// Use parseIntField(), textString(), and parseTags() to access them.
+export type SearchResponse = z.infer<typeof SearchResponseSchema>;
+export type SearchHit = z.infer<typeof SearchHitSchema>;
+export type SearchCV = z.infer<typeof SearchCVSchema>;
 
-export interface RawCV {
-  name?: string;
-  email?: string;
-  title?: unknown;
-  born_year?: unknown;
-  key_qualifications?: RawKeyQualification[];
-  technologies?: RawTechnologyGroup[];
-  work_experiences?: RawWorkExperience[];
-  project_experiences?: RawProjectExp[];
-  educations?: RawEducation[];
-  certifications?: RawCertification[];
-  presentations?: RawPresentation[];
-  languages?: RawLanguage[];
-  courses?: RawCourse[];
-}
+// ── CV detail schemas ──────────────────────────────────────────────────────────
+// All polymorphic fields (Int, Text, Tags) use z.unknown() and are accessed
+// via parseIntField(), textString(), and parseTags().
 
-export interface RawKeyQualification {
-  label?: unknown;
-  long_description?: unknown;
-  tag_line?: unknown;
-  starred?: boolean;
-  disabled?: boolean;
-}
+export const RawKeyQualificationSchema = z.object({
+  label: z.unknown().optional(),
+  long_description: z.unknown().optional(),
+  tag_line: z.unknown().optional(),
+  starred: z.boolean().optional(),
+  disabled: z.boolean().optional(),
+});
 
-export interface RawTechnologyGroup {
-  category?: unknown;
-  technology?: RawTechItem[];
-}
+export const RawTechItemSchema = z.object({
+  tags: z.unknown().optional(),
+});
 
-export interface RawTechItem {
-  tags?: unknown;
-}
+export const RawTechnologyGroupSchema = z.object({
+  category: z.unknown().optional(),
+  technology: z.array(RawTechItemSchema).optional(),
+});
 
-export interface RawWorkExperience {
-  employer?: unknown;
-  title?: unknown;
-  description?: unknown;
-  year_from?: unknown;
-  month_from?: unknown;
-  year_to?: unknown;
-  month_to?: unknown;
-  currently_working_here?: boolean;
-}
+export const RawWorkExperienceSchema = z.object({
+  employer: z.unknown().optional(),
+  title: z.unknown().optional(),
+  description: z.unknown().optional(),
+  year_from: z.unknown().optional(),
+  month_from: z.unknown().optional(),
+  year_to: z.unknown().optional(),
+  month_to: z.unknown().optional(),
+  currently_working_here: z.boolean().optional(),
+});
 
-export interface RawProjectExp {
-  customer?: unknown;
-  description?: unknown;
-  roles?: RawRole[];
-  year_from?: unknown;
-  month_from?: unknown;
-  year_to?: unknown;
-  month_to?: unknown;
-  project_experience_skills?: RawProjSkill[];
-}
+export const RawRoleSchema = z.object({
+  name: z.unknown().optional(),
+});
 
-export interface RawRole {
-  name?: unknown;
-}
+export const RawProjSkillSchema = z.object({
+  tags: z.unknown().optional(),
+});
 
-export interface RawProjSkill {
-  tags?: unknown;
-}
+export const RawProjectExpSchema = z.object({
+  customer: z.unknown().optional(),
+  description: z.unknown().optional(),
+  roles: z.array(RawRoleSchema).optional(),
+  year_from: z.unknown().optional(),
+  month_from: z.unknown().optional(),
+  year_to: z.unknown().optional(),
+  month_to: z.unknown().optional(),
+  project_experience_skills: z.array(RawProjSkillSchema).optional(),
+});
 
-export interface RawEducation {
-  school?: unknown;
-  degree?: unknown;
-  description?: unknown;
-  year_from?: unknown;
-  year_to?: unknown;
-}
+export const RawEducationSchema = z.object({
+  school: z.unknown().optional(),
+  degree: z.unknown().optional(),
+  description: z.unknown().optional(),
+  year_from: z.unknown().optional(),
+  year_to: z.unknown().optional(),
+});
 
-export interface RawCertification {
-  name?: unknown;
-  organizer?: unknown;
-  long_description?: unknown;
-  year?: unknown;
-  month?: unknown;
-}
+export const RawCertificationSchema = z.object({
+  name: z.unknown().optional(),
+  organizer: z.unknown().optional(),
+  long_description: z.unknown().optional(),
+  year: z.unknown().optional(),
+  month: z.unknown().optional(),
+});
 
-export interface RawPresentation {
-  description?: unknown;
-  long_description?: unknown;
-  year?: unknown;
-  month?: unknown;
-}
+export const RawPresentationSchema = z.object({
+  description: z.unknown().optional(),
+  long_description: z.unknown().optional(),
+  year: z.unknown().optional(),
+  month: z.unknown().optional(),
+});
 
-export interface RawLanguage {
-  name?: unknown;
-  level?: unknown;
-}
+export const RawLanguageSchema = z.object({
+  name: z.unknown().optional(),
+  level: z.unknown().optional(),
+});
 
-export interface RawCourse {
-  name?: unknown;
-  program?: unknown;
-  year?: unknown;
-}
+export const RawCourseSchema = z.object({
+  name: z.unknown().optional(),
+  program: z.unknown().optional(),
+  year: z.unknown().optional(),
+});
+
+export const RawCVSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().optional(),
+  title: z.unknown().optional(),
+  born_year: z.unknown().optional(),
+  key_qualifications: z.array(RawKeyQualificationSchema).optional(),
+  technologies: z.array(RawTechnologyGroupSchema).optional(),
+  work_experiences: z.array(RawWorkExperienceSchema).optional(),
+  project_experiences: z.array(RawProjectExpSchema).optional(),
+  educations: z.array(RawEducationSchema).optional(),
+  certifications: z.array(RawCertificationSchema).optional(),
+  presentations: z.array(RawPresentationSchema).optional(),
+  languages: z.array(RawLanguageSchema).optional(),
+  courses: z.array(RawCourseSchema).optional(),
+});
+
+export type RawCV = z.infer<typeof RawCVSchema>;
+export type RawKeyQualification = z.infer<typeof RawKeyQualificationSchema>;
+export type RawTechnologyGroup = z.infer<typeof RawTechnologyGroupSchema>;
+export type RawTechItem = z.infer<typeof RawTechItemSchema>;
+export type RawWorkExperience = z.infer<typeof RawWorkExperienceSchema>;
+export type RawProjectExp = z.infer<typeof RawProjectExpSchema>;
+export type RawRole = z.infer<typeof RawRoleSchema>;
+export type RawProjSkill = z.infer<typeof RawProjSkillSchema>;
+export type RawEducation = z.infer<typeof RawEducationSchema>;
+export type RawCertification = z.infer<typeof RawCertificationSchema>;
+export type RawPresentation = z.infer<typeof RawPresentationSchema>;
+export type RawLanguage = z.infer<typeof RawLanguageSchema>;
+export type RawCourse = z.infer<typeof RawCourseSchema>;
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
 

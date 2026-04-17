@@ -1,5 +1,19 @@
 {
   "enabledPlugins": {
     "mcp-server-dev@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/mikaelbrevik/Sites/repos/variant/internal-mcp-ts && pnpm run check 2>&1; pnpm run format 2>/dev/null || true",
+            "statusMessage": "Running biome check & format..."
+          }
+        ]
+      }
+    ]
   }
 }

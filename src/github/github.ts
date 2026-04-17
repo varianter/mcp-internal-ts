@@ -1,6 +1,8 @@
 // Package github provides a minimal client for the GitHub Git Data API,
 // scoped to deploying static files into the varianter artifact repos.
 
+import { z } from 'zod';
+
 const repoOwner = 'varianter';
 const repoPublic = 'external-artifacts';
 const repoInternal = 'vibe-artifacts';
@@ -37,6 +39,24 @@ export interface DeployResult {
   commitURL: string;
   files: string[];
 }
+
+// ── GitHub API response schemas ────────────────────────────────────────────────
+
+const RefResponseSchema = z.object({
+  object: z.object({
+    sha: z.string(),
+  }),
+});
+
+const CommitResponseSchema = z.object({
+  tree: z.object({
+    sha: z.string(),
+  }),
+});
+
+const ShaResponseSchema = z.object({
+  sha: z.string(),
+});
 
 function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
@@ -110,24 +130,28 @@ export class GitHubClient {
     owner: string,
     repo: string,
   ): Promise<{ commitSHA: string; treeSHA: string }> {
-    const refResp = await this.request<{ object: { sha: string } }>(
+    const refResp = await this.request(
       'GET',
       `/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+      RefResponseSchema,
     );
     const commitSHA = refResp.object.sha;
 
-    const commitResp = await this.request<{ tree: { sha: string } }>(
+    const commitResp = await this.request(
       'GET',
       `/repos/${owner}/${repo}/git/commits/${commitSHA}`,
+      CommitResponseSchema,
     );
     return { commitSHA, treeSHA: commitResp.tree.sha };
   }
 
   private async createBlob(owner: string, repo: string, content: string): Promise<string> {
-    const resp = await this.request<{ sha: string }>('POST', `/repos/${owner}/${repo}/git/blobs`, {
-      content: Buffer.from(content).toString('base64'),
-      encoding: 'base64',
-    });
+    const resp = await this.request(
+      'POST',
+      `/repos/${owner}/${repo}/git/blobs`,
+      ShaResponseSchema,
+      { content: Buffer.from(content).toString('base64'), encoding: 'base64' },
+    );
     return resp.sha;
   }
 
@@ -137,15 +161,20 @@ export class GitHubClient {
     baseTreeSHA: string,
     blobs: { path: string; sha: string }[],
   ): Promise<string> {
-    const resp = await this.request<{ sha: string }>('POST', `/repos/${owner}/${repo}/git/trees`, {
-      base_tree: baseTreeSHA,
-      tree: blobs.map((b) => ({
-        path: b.path,
-        mode: '100644',
-        type: 'blob',
-        sha: b.sha,
-      })),
-    });
+    const resp = await this.request(
+      'POST',
+      `/repos/${owner}/${repo}/git/trees`,
+      ShaResponseSchema,
+      {
+        base_tree: baseTreeSHA,
+        tree: blobs.map((b) => ({
+          path: b.path,
+          mode: '100644',
+          type: 'blob',
+          sha: b.sha,
+        })),
+      },
+    );
     return resp.sha;
   }
 
@@ -166,22 +195,28 @@ export class GitHubClient {
     if (authorName && authorEmail) {
       body.author = { name: authorName, email: authorEmail };
     }
-    const resp = await this.request<{ sha: string }>(
+    const resp = await this.request(
       'POST',
       `/repos/${owner}/${repo}/git/commits`,
+      ShaResponseSchema,
       body,
     );
     return resp.sha;
   }
 
   private async updateRef(owner: string, repo: string, commitSHA: string): Promise<void> {
-    await this.request('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+    await this.request('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${branch}`, z.unknown(), {
       sha: commitSHA,
       force: false,
     });
   }
 
-  private async request<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<S extends z.ZodTypeAny>(
+    method: string,
+    path: string,
+    schema: S,
+    body?: unknown,
+  ): Promise<z.infer<S>> {
     const url = `${apiBase}${path}`;
     const init: RequestInit = {
       method,
@@ -198,8 +233,8 @@ export class GitHubClient {
       throw new Error(`HTTP ${resp.status}: ${truncate(text, 300)}`);
     }
 
-    if (!text) return undefined as unknown as T;
-    return JSON.parse(text) as T;
+    if (!text) return schema.parse(undefined);
+    return schema.parse(JSON.parse(text));
   }
 
   private headers(): Record<string, string> {

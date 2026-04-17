@@ -10,8 +10,10 @@ import {
   parseIntField,
   parseTags,
   type RawCV,
+  RawCVSchema,
   type RawKeyQualification,
   type SearchResponse,
+  SearchResponseSchema,
   textString,
 } from '../flowcase/flowcase.js';
 import { log } from '../log.js';
@@ -77,7 +79,13 @@ async function fetchCV(apiKey: string, org: string, query: string): Promise<stri
     size: 5,
   };
 
-  const searchResp = await doRequest<SearchResponse>('POST', `${api}/v4/search`, auth, payload);
+  const searchResp = await doRequest(
+    'POST',
+    `${api}/v4/search`,
+    auth,
+    SearchResponseSchema,
+    payload,
+  );
 
   if (!searchResp.cvs || searchResp.cvs.length === 0) {
     throw new Error(`no consultant found matching "${query}" in FlowCase`);
@@ -97,7 +105,7 @@ async function fetchCV(apiKey: string, org: string, query: string): Promise<stri
   }
 
   const cvURL = `${api}/v3/cvs/${hit.user_id}/${hit.id}`;
-  const cv = await doRequest<RawCV>('GET', cvURL, auth);
+  const cv = await doRequest('GET', cvURL, auth, RawCVSchema);
 
   return formatCV(cv, searchResp.cvs);
 }
