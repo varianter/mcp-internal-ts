@@ -8,6 +8,7 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.json .
 COPY src ./src
+COPY widgets ./widgets
 RUN pnpm build
 
 # Stage 2: Runtime
