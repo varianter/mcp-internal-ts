@@ -26,8 +26,8 @@ cp .env.example .env
 # 3. Start with hot-reload, using KeyVault
 pnpm dev
 
-# 4. Open MCP Inspector in another terminal
-pnpm inspect
+# 4. Open MCPJam in another terminal
+pnpm jam
 ```
 
 ## Environment variables
