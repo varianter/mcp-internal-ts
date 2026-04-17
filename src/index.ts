@@ -127,19 +127,20 @@ async function main(): Promise<void> {
   // Graceful shutdown
   const shutdown = (): void => {
     log('info', 'shutting down server');
-    const deadline = setTimeout(() => process.exit(1), 30_000);
+    const deadline = setTimeout(() => process.exit(1), 5_000);
     deadline.unref();
-
-    httpSrv.close(() => {
-      log('info', 'http server closed');
-      clearTimeout(deadline);
-      process.exit(0);
-    });
 
     // Close all active transports
     for (const transport of transports.values()) {
       transport.close().catch(() => undefined);
     }
+
+    httpSrv.closeAllConnections();
+    httpSrv.close(() => {
+      log('info', 'http server closed');
+      clearTimeout(deadline);
+      process.exit(0);
+    });
   };
 
   process.on('SIGINT', shutdown);

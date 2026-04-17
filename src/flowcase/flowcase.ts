@@ -94,7 +94,7 @@ export const SearchCVSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string(),
-  default: z.boolean(),
+  default: z.boolean().optional(),
   title: z.unknown(), // Text (localised or plain string)
 });
 
