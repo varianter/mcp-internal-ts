@@ -8,6 +8,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { loadConfig } from './config/config.js';
 import { log } from './log.js';
 import { SecretsLoader } from './secrets/secrets.js';
+import { registerFindGithubAppName } from './tools/findGithubAppName.js';
 import { registerGetCvForConsultant } from './tools/getCvForConsultant.js';
 import { registerGithubAppExists } from './tools/githubAppExists.js';
 import { registerGithubDeployApp } from './tools/githubDeployApp.js';
@@ -32,6 +33,7 @@ function buildServer(loader: SecretsLoader, iconUrl: string): McpServer {
   registerSearchCvByKeyword(server, loader);
   registerGithubAppExists(server, loader);
   registerGithubDeployApp(server, loader);
+  registerFindGithubAppName(server);
 
   return server;
 }

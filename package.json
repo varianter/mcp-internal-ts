@@ -5,26 +5,36 @@
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "dev": "tsx watch --env-file .env src/index.ts",
-    "build": "tsc",
+    "dev": "pnpm run build:widget && concurrently \"vite build --watch --mode development\" \"tsx watch --env-file .env src/index.ts\"",
+    "build": "pnpm run build:widget && tsc",
+    "build:widget": "vite build",
     "start": "node dist/index.js",
     "inspect": "npx @modelcontextprotocol/inspector --transport http --server-url http://localhost:8080/mcp",
-    "jam": "pnpm dlx @mcpjam/inspector@latest --config mcp.config.json --server variant-internal",
-    "lint": "biome lint src",
-    "format": "biome format --write src",
-    "check": "biome check src",
-    "fix": "biome check src --fix"
+    "jam": "DO_NOT_TRACK=1 pnpm dlx @mcpjam/inspector@latest --config mcp.config.json --server variant-internal",
+    "lint": "biome lint src widgets",
+    "format": "biome format --write src widgets",
+    "check": "biome check src widgets",
+    "fix": "biome check src widgets --fix"
   },
   "dependencies": {
     "@azure/identity": "4.13.1",
     "@azure/keyvault-secrets": "4.11.1",
+    "@modelcontextprotocol/ext-apps": "^1.6.0",
     "@modelcontextprotocol/sdk": "1.29.0",
     "zod": "4.3.6"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
   "devDependencies": {
     "@biomejs/biome": "2.4.12",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@types/node": "25.6.0",
+    "concurrently": "^9.2.1",
+    "svelte": "^5.55.4",
     "tsx": "4.21.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vite": "^8.0.8",
+    "vite-plugin-singlefile": "^2.3.2"
   }
 }
