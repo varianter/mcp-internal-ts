@@ -20,11 +20,14 @@ import { log } from '../log.js';
 import { loadSecret, type SecretsLoader } from '../secrets/secrets.js';
 
 export function registerGetCvForConsultant(server: McpServer, loader: SecretsLoader): void {
-  server.tool(
+  server.registerTool(
     'get-cv-for-consultant',
-    "Fetch a consultant's full CV from FlowCase by name. Returns a structured Markdown summary of their profile, skills, work history, projects, education, certifications, and languages.",
     {
-      query: z.string().describe("Consultant's full name (e.g. 'Mikael Brevik')"),
+      description:
+        "Fetch a consultant's full CV from FlowCase by name. Returns a structured Markdown summary of their profile, skills, work history, projects, education, certifications, and languages.",
+      inputSchema: {
+        query: z.string().describe("Consultant's full name (e.g. 'Mikael Brevik')"),
+      },
     },
     async ({ query }) => {
       query = query.trim();

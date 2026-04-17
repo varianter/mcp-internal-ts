@@ -30,15 +30,18 @@ interface SearchCandidate {
 }
 
 export function registerSearchCvByKeyword(server: McpServer, loader: SecretsLoader): void {
-  server.tool(
+  server.registerTool(
     'search-cv-by-keyword',
-    'Search FlowCase for consultants matching a list of technology or skill keywords. Returns consultants ranked by total years of experience with the requested technologies.',
     {
-      keywords: z
-        .string()
-        .describe(
-          "Comma-separated list of technologies or skills to search for (e.g. 'React, Kubernetes, PostgreSQL')",
-        ),
+      description:
+        'Search FlowCase for consultants matching a list of technology or skill keywords. Returns consultants ranked by total years of experience with the requested technologies.',
+      inputSchema: {
+        keywords: z
+          .string()
+          .describe(
+            "Comma-separated list of technologies or skills to search for (e.g. 'React, Kubernetes, PostgreSQL')",
+          ),
+      },
     },
     async ({ keywords: raw }) => {
       raw = raw.trim();

@@ -28,10 +28,9 @@ const jokes = [
 ];
 
 export function registerRandomJoke(server: McpServer): void {
-  server.tool(
+  server.registerTool(
     'random-joke',
-    'Get a random IT, programming, or design joke to brighten your day',
-    {},
+    { description: 'Get a random IT, programming, or design joke to brighten your day' },
     async () => {
       const joke = jokes[Math.floor(Math.random() * jokes.length)];
       return { content: [{ type: 'text', text: joke }] };

@@ -21,8 +21,9 @@ pnpm install
 # 2. Configure env vars
 cp .env.example .env
 # Edit .env with your FLOWCASE_API_KEY, FLOWCASE_ORG, GITHUB_TOKEN
+# It uses KeyVault by default so with access to Variant Azure, you only "KEYVAULT_URL" is needed.
 
-# 3. Start with hot-reload
+# 3. Start with hot-reload, using KeyVault
 pnpm dev
 
 # 4. Open MCP Inspector in another terminal

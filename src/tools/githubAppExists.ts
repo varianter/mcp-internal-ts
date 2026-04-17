@@ -5,22 +5,24 @@ import { log } from '../log.js';
 import { loadSecret, type SecretsLoader } from '../secrets/secrets.js';
 
 export function registerGithubAppExists(server: McpServer, loader: SecretsLoader): void {
-  server.tool(
+  server.registerTool(
     'github-app-exists',
-    `Check whether apps/<app_name>/ already exists in a Variant artifact repo.
+    {
+      description: `Check whether apps/<app_name>/ already exists in a Variant artifact repo.
 Returns "exists" if the app directory is found, or "not_found" if it is not.
 Use this before deploying to decide whether to use commit prefix "deploy:" (new) or "update:" (replacing).`,
-    {
-      app_name: z
-        .string()
-        .describe(
-          'The app identifier. Becomes the path prefix apps/<app_name>/ in the repo. Use kebab-case (e.g. "budget-tracker"). Must not contain "/" or "..".',
-        ),
-      repo: z
-        .enum(['public', 'internal'])
-        .describe(
-          'Deployment target. "public" → varianter/external-artifacts (share.variant.dev). "internal" → varianter/vibe-artifacts (artifacts.variant.dev, Variant employees only).',
-        ),
+      inputSchema: {
+        app_name: z
+          .string()
+          .describe(
+            'The app identifier. Becomes the path prefix apps/<app_name>/ in the repo. Use kebab-case (e.g. "budget-tracker"). Must not contain "/" or "..".',
+          ),
+        repo: z
+          .enum(['public', 'internal'])
+          .describe(
+            'Deployment target. "public" → varianter/external-artifacts (share.variant.dev). "internal" → varianter/vibe-artifacts (artifacts.variant.dev, Variant employees only).',
+          ),
+      },
     },
     async ({ app_name, repo: repoTarget }) => {
       app_name = app_name.trim();

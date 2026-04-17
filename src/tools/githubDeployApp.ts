@@ -6,9 +6,10 @@ import { loadSecret, type SecretsLoader } from '../secrets/secrets.js';
 import { errorMessage, scan } from '../secretscanner/secretscanner.js';
 
 export function registerGithubDeployApp(server: McpServer, loader: SecretsLoader): void {
-  server.tool(
+  server.registerTool(
     'github-deploy-app',
-    `Deploy files to apps/<app_name>/ in a Variant artifact repo via a single atomic Git commit.
+    {
+      description: `Deploy files to apps/<app_name>/ in a Variant artifact repo via a single atomic Git commit.
 Supports static HTML/CSS/JS and Vite project files. All files land in one commit — either all succeed or none.
 
 Repo targets:
@@ -17,34 +18,35 @@ Repo targets:
 
 Only writes inside apps/ — never touches anything else in the repo.
 Commit message is "deploy: <app_name>" for new apps, "update: <app_name>" when replacing.`,
-    {
-      app_name: z
-        .string()
-        .describe(
-          'App identifier in kebab-case (e.g. "budget-tracker"). Becomes apps/<app_name>/ in the repo. Must not contain "/" or "..".',
-        ),
-      repo: z
-        .enum(['public', 'internal'])
-        .describe(
-          'Deployment target: "public" (share.variant.dev) or "internal" (artifacts.variant.dev, employees only).',
-        ),
-      files: z
-        .string()
-        .describe(
-          'JSON array of files to deploy. Each entry: {"path": "relative/path/file.html", "content": "plain text content"}. Paths are relative to apps/<app_name>/ with no leading slash. Content is plain UTF-8 text. Example: [{"path":"index.html","content":"<html>...</html>"},{"path":"src/App.jsx","content":"..."}]',
-        ),
-      author_name: z
-        .string()
-        .optional()
-        .describe(
-          'Full name of the person deploying the app (e.g. "Mikael Brevik"). Defaults to "Variant Bot" if omitted.',
-        ),
-      author_email: z
-        .string()
-        .optional()
-        .describe(
-          'Email of the person deploying the app (e.g. "mb@variant.no"). Defaults to "no-one@variant.no" if omitted.',
-        ),
+      inputSchema: {
+        app_name: z
+          .string()
+          .describe(
+            'App identifier in kebab-case (e.g. "budget-tracker"). Becomes apps/<app_name>/ in the repo. Must not contain "/" or "..".',
+          ),
+        repo: z
+          .enum(['public', 'internal'])
+          .describe(
+            'Deployment target: "public" (share.variant.dev) or "internal" (artifacts.variant.dev, employees only).',
+          ),
+        files: z
+          .string()
+          .describe(
+            'JSON array of files to deploy. Each entry: {"path": "relative/path/file.html", "content": "plain text content"}. Paths are relative to apps/<app_name>/ with no leading slash. Content is plain UTF-8 text. Example: [{"path":"index.html","content":"<html>...</html>"},{"path":"src/App.jsx","content":"..."}]',
+          ),
+        author_name: z
+          .string()
+          .optional()
+          .describe(
+            'Full name of the person deploying the app (e.g. "Mikael Brevik"). Defaults to "Variant Bot" if omitted.',
+          ),
+        author_email: z
+          .string()
+          .optional()
+          .describe(
+            'Email of the person deploying the app (e.g. "mb@variant.no"). Defaults to "no-one@variant.no" if omitted.',
+          ),
+      },
     },
     async ({ app_name, repo: repoTarget, files: filesJSON, author_name, author_email }) => {
       app_name = app_name.trim();
