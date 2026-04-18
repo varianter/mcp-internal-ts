@@ -3,13 +3,14 @@ type Repo = 'public' | 'internal';
 type Status = 'idle' | 'checking' | 'available' | 'taken' | 'error';
 
 type McpApp = {
-  callServerTool: (args: {
-    name: string;
-    arguments: Record<string, unknown>;
-  }) => Promise<{ content: Array<{ type: string; text: string }> }>;
+  callServerTool: (args: { name: string; arguments: Record<string, unknown> }) => Promise<{
+    content: Array<{ type: string; text: string }>;
+    structuredContent?: Record<string, unknown>;
+  }>;
   sendMessage: (msg: { role: string; content: Array<{ type: string; text: string }> }) => void;
   getHostContext: () => { theme?: string } | null | undefined;
   onhostcontextchanged: ((ctx: { theme?: string }) => void) | null;
+  ontoolinput: ((params: { arguments?: Record<string, unknown> }) => void) | null;
 };
 
 const { app }: { app: McpApp } = $props();
@@ -29,6 +30,22 @@ $effect(() => {
   };
 });
 
+// Pre-fill from tool arguments if provided by the model
+$effect(() => {
+  app.ontoolinput = (params) => {
+    const args = params.arguments ?? {};
+    if (typeof args.app_name === 'string' && args.app_name) {
+      rawInput = args.app_name;
+    }
+    if (args.repo === 'public' || args.repo === 'internal') {
+      repo = args.repo;
+    }
+    if (rawInput) {
+      checkAvailability();
+    }
+  };
+});
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -41,6 +58,7 @@ function slugify(value: string): string {
 const appName = $derived(slugify(rawInput));
 const canCheck = $derived(appName.length > 0 && status !== 'checking');
 const canConfirm = $derived(status === 'available' && appName.length > 0);
+const canReplace = $derived(status === 'taken' && appName.length > 0);
 
 function onInputChange() {
   if (status !== 'idle') {
@@ -69,14 +87,19 @@ async function checkAvailability() {
       name: 'github-app-exists',
       arguments: { app_name: appName, repo },
     });
-    const text = result?.content?.[0]?.text ?? '';
-    if (text === 'exists') {
-      status = 'taken';
-    } else if (text === 'not_found') {
-      status = 'available';
+    if (result?.structuredContent != null) {
+      status = result.structuredContent.exists ? 'taken' : 'available';
     } else {
-      status = 'error';
-      errorMessage = text || 'Unexpected response';
+      // fallback for servers without structured output support
+      const text = result?.content?.[0]?.text ?? '';
+      if (text === 'exists') {
+        status = 'taken';
+      } else if (text === 'not_found') {
+        status = 'available';
+      } else {
+        status = 'error';
+        errorMessage = text || 'Unexpected response';
+      }
     }
   } catch (e) {
     status = 'error';
@@ -84,14 +107,18 @@ async function checkAvailability() {
   }
 }
 
-function confirmName() {
-  if (!canConfirm) return;
+function confirmName(intent: 'deploy' | 'replace') {
+  if (intent === 'deploy' && !canConfirm) return;
+  if (intent === 'replace' && !canReplace) return;
   app.sendMessage({
     role: 'user',
     content: [
       {
         type: 'text',
-        text: `App name: ${appName}, repo: ${repo}`,
+        text:
+          intent === 'replace'
+            ? `App name: ${appName}, repo: ${repo}, action: replace`
+            : `App name: ${appName}, repo: ${repo}, action: deploy`,
       },
     ],
   });
@@ -106,7 +133,7 @@ const repoLabels: Record<Repo, string> = {
 <div class="widget" class:dark>
   <form onsubmit={(e) => { e.preventDefault(); checkAvailability(); }}>
     <div class="field">
-      <label for="name-input">App name</label>
+      <label class="field-label" for="name-input">App name</label>
       <input
         id="name-input"
         type="text"
@@ -124,10 +151,10 @@ const repoLabels: Record<Repo, string> = {
     </div>
 
     <div class="field">
-      <fieldset>
-        <legend>Target repo</legend>
+      <span class="field-label">Target repo</span>
+      <div class="pill-group" role="radiogroup" aria-label="Target repo">
         {#each Object.entries(repoLabels) as [value, label]}
-          <label class="radio">
+          <label class="pill" class:selected={repo === value}>
             <input
               type="radio"
               name="repo"
@@ -138,7 +165,7 @@ const repoLabels: Record<Repo, string> = {
             {label}
           </label>
         {/each}
-      </fieldset>
+      </div>
     </div>
 
     <div class="actions">
@@ -160,8 +187,14 @@ const repoLabels: Record<Repo, string> = {
 
   {#if canConfirm}
     <div class="confirm">
-      <button class="btn-confirm" onclick={confirmName}>
+      <button class="btn-confirm" onclick={() => confirmName('deploy')}>
         Use "{appName}"
+      </button>
+    </div>
+  {:else if canReplace}
+    <div class="confirm">
+      <button class="btn-replace" onclick={() => confirmName('replace')}>
+        Replace "{appName}"
       </button>
     </div>
   {/if}
@@ -169,82 +202,108 @@ const repoLabels: Record<Repo, string> = {
 
 <style>
   .widget {
-    font-family: system-ui, sans-serif;
-    font-size: 14px;
-    padding: 16px;
-    color: #111;
-    background: #fff;
+    font-family: 'Britti Sans', Arial, sans-serif;
+    font-size: 1rem;
+    font-weight: 300;
+    padding: 20px;
+    color: #222424;
+    background: #fafafa;
     box-sizing: border-box;
-    --accent: #1a56e8;
-    --radius: 6px;
+    --fg: #222424;
+    --fg-inv: #fafafa;
+    --border: #222424;
+    --border-muted: #c8c8c8;
+    --text-secondary: #5e5e5e;
+    --success-bg: #e6f5e7;
+    --success-text: #035506;
+    --error-bg: #fdedec;
+    --error-text: #7c2318;
+    --warning-bg: #fffbf6;
+    --warning-text: #8e6703;
   }
   .widget.dark {
-    color: #f0f0f0;
-    background: #1a1a1a;
-    --accent: #5b8df7;
+    color: #fafafa;
+    background: #2d2d2d;
+    --fg: #fafafa;
+    --fg-inv: #222424;
+    --border: #fafafa;
+    --border-muted: #555;
+    --text-secondary: #b4b5b5;
+    --success-bg: #024105;
+    --success-text: #8cd18f;
+    --error-bg: #46100a;
+    --error-text: #f3948f;
+    --warning-bg: #3b2800;
+    --warning-text: #fbe186;
   }
 
   .field {
-    margin-bottom: 14px;
+    margin-bottom: 18px;
   }
-  label {
+  .field-label {
     display: block;
-    font-weight: 600;
-    margin-bottom: 6px;
+    font-weight: 450;
+    margin-bottom: 8px;
+    font-size: 0.9375rem;
   }
+
   input[type='text'] {
     width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: var(--radius);
-    font-size: 14px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border-muted);
+    border-radius: 6px;
+    font-size: 1rem;
+    font-family: inherit;
+    font-weight: 300;
     box-sizing: border-box;
     background: inherit;
     color: inherit;
-  }
-  .widget.dark input[type='text'] {
-    border-color: #444;
+    transition: border-color 0.15s;
   }
   input[type='text']:focus {
-    outline: 2px solid var(--accent);
-    border-color: transparent;
+    outline: none;
+    border-color: var(--fg);
   }
   .slug-hint {
-    margin: 4px 0 0;
-    font-size: 12px;
-    color: #666;
-  }
-  .widget.dark .slug-hint {
-    color: #aaa;
+    margin: 5px 0 0;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
   }
 
-  fieldset {
-    border: 1px solid #ddd;
-    border-radius: var(--radius);
-    padding: 8px 12px;
-    margin: 0;
-  }
-  .widget.dark fieldset {
-    border-color: #444;
-  }
-  legend {
-    font-weight: 600;
-    padding: 0 4px;
-    font-size: 14px;
-  }
-  .radio {
+  /* Pill radio group */
+  .pill-group {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
-    font-weight: normal;
-    margin-bottom: 4px;
+  }
+  .pill-group input[type='radio'] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 18px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    font-family: inherit;
+    font-size: 0.9375rem;
+    font-weight: 400;
     cursor: pointer;
+    background: transparent;
+    color: var(--fg);
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
   }
-  .radio:last-child {
-    margin-bottom: 0;
+  .pill.selected {
+    background: var(--fg);
+    color: var(--fg-inv);
   }
-  .radio input {
-    accent-color: var(--accent);
+  .pill:hover:not(.selected) {
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
   }
 
   .actions {
@@ -255,66 +314,72 @@ const repoLabels: Record<Repo, string> = {
   }
 
   button {
-    padding: 8px 16px;
-    border-radius: var(--radius);
-    font-size: 14px;
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 22px;
+    border-radius: 999px;
+    font-size: 1rem;
+    font-family: inherit;
+    font-weight: 400;
     cursor: pointer;
-    border: none;
+    border: 1.5px solid var(--fg);
+    transition: background 0.15s, color 0.15s, opacity 0.15s;
   }
   button:disabled {
-    opacity: 0.45;
+    opacity: 0.35;
     cursor: default;
   }
 
   .btn-check {
-    background: var(--accent);
-    color: #fff;
+    background: var(--fg);
+    color: var(--fg-inv);
   }
   .btn-check:hover:not(:disabled) {
-    opacity: 0.88;
+    background: color-mix(in srgb, var(--fg) 85%, transparent);
+    border-color: color-mix(in srgb, var(--fg) 85%, transparent);
   }
 
   .badge {
-    font-size: 13px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 99px;
+    font-size: 0.875rem;
+    font-weight: 450;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1.5px solid transparent;
   }
   .badge.available {
-    background: #d1fae5;
-    color: #065f46;
+    background: var(--success-bg);
+    color: var(--success-text);
   }
   .badge.taken {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--error-bg);
+    color: var(--error-text);
   }
   .badge.error {
-    background: #fef3c7;
-    color: #92400e;
-  }
-  .widget.dark .badge.available {
-    background: #064e3b;
-    color: #6ee7b7;
-  }
-  .widget.dark .badge.taken {
-    background: #7f1d1d;
-    color: #fca5a5;
-  }
-  .widget.dark .badge.error {
-    background: #78350f;
-    color: #fde68a;
+    background: var(--warning-bg);
+    color: var(--warning-text);
   }
 
   .confirm {
-    margin-top: 14px;
+    margin-top: 16px;
   }
   .btn-confirm {
-    background: #16a34a;
-    color: #fff;
+    background: var(--fg);
+    color: var(--fg-inv);
     width: 100%;
+    border-color: var(--fg);
   }
   .btn-confirm:hover {
-    opacity: 0.88;
+    opacity: 0.82;
+  }
+  .btn-replace {
+    background: transparent;
+    color: var(--error-text);
+    width: 100%;
+    border-color: var(--error-text);
+  }
+  .btn-replace:hover {
+    background: var(--error-bg);
   }
 </style>

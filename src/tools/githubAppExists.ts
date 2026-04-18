@@ -8,8 +8,8 @@ export function registerGithubAppExists(server: McpServer, loader: SecretsLoader
   server.registerTool(
     'github-app-exists',
     {
+      title: 'Check GitHub App Availability',
       description: `Check whether apps/<app_name>/ already exists in a Variant artifact repo.
-Returns "exists" if the app directory is found, or "not_found" if it is not.
 Use this before deploying to decide whether to use commit prefix "deploy:" (new) or "update:" (replacing).`,
       inputSchema: {
         app_name: z
@@ -22,6 +22,15 @@ Use this before deploying to decide whether to use commit prefix "deploy:" (new)
           .describe(
             'Deployment target. "public" → varianter/external-artifacts (share.variant.dev). "internal" → varianter/vibe-artifacts (artifacts.variant.dev, Variant employees only).',
           ),
+      },
+      outputSchema: {
+        exists: z.boolean().describe('Whether the app directory already exists in the repo.'),
+      },
+      annotations: {
+        title: 'Check GitHub App Availability',
+        readOnlyHint: true,
+        idempotentHint: true,
+        destructiveHint: false,
       },
     },
     async ({ app_name, repo: repoTarget }) => {
@@ -59,7 +68,10 @@ Use this before deploying to decide whether to use commit prefix "deploy:" (new)
       log('info', 'github-app-exists: checking', { app: app_name, repo: repoTarget });
       try {
         const exists = await new GitHubClient(token).appExists(owner, repoName, app_name);
-        return { content: [{ type: 'text', text: exists ? 'exists' : 'not_found' }] };
+        return {
+          structuredContent: { exists },
+          content: [{ type: 'text' as const, text: exists ? 'exists' : 'not_found' }],
+        };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         log('error', 'github-app-exists: API error', { error: msg });

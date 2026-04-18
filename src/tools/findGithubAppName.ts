@@ -8,6 +8,7 @@ import {
   registerAppTool,
 } from '@modelcontextprotocol/ext-apps/server';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const widgetPath = join(__dirname, '../../dist/widgets/findGithubAppName/index.html');
@@ -50,13 +51,31 @@ export function registerFindGithubAppName(server: McpServer): void {
     server,
     'find-github-app-name',
     {
+      title: 'Find GitHub App Name',
       description:
-        'Opens an interactive widget to find and confirm an available GitHub app name for deploying on Variant host. ' +
+        'Opens an interactive widget to find and confirm a GitHub app name for deploying on Variant host. ' +
         'Used to check what URL slug to use when deploying in Variant internal or public hosting. ' +
-        'The user types a slug-friendly name, selects public or internal repo, ' +
-        'checks availability, and confirms their choice. ' +
-        'Returns the confirmed app name and target repo.',
-      inputSchema: {},
+        'The user types a slug-friendly name, selects public or internal repo, and checks availability. ' +
+        'If the name is free they confirm to deploy; if already taken they can choose to replace it. ' +
+        'Returns the confirmed app name, target repo, and action (deploy or replace). ' +
+        'Pass app_name and repo if already known from context — the widget will pre-fill them and auto-check availability.',
+      inputSchema: {
+        app_name: z
+          .string()
+          .optional()
+          .describe(
+            'Pre-fill the app name if already known from context (e.g. a previous deployment). Widget will auto-check availability on open.',
+          ),
+        repo: z
+          .enum(['public', 'internal'])
+          .optional()
+          .describe('Pre-select the target repo if already known from context.'),
+      },
+      annotations: {
+        title: 'Find GitHub App Name',
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
       _meta: { ui: { resourceUri: RESOURCE_URI } },
     },
     async () => ({
