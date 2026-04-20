@@ -202,7 +202,7 @@ async function copyHtml() {
 
   .preview-box {
     position: relative;
-    background: var(--bg-preview);
+    background: #f2f2f2;
     border: 1.5px solid var(--border-muted);
     border-radius: 8px;
     padding: 20px 22px 24px;
