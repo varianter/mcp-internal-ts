@@ -11,6 +11,7 @@ COPY vite.config.ts .
 COPY svelte.config.js .
 COPY src ./src
 COPY widgets ./widgets
+COPY scripts ./scripts
 RUN pnpm build
 
 # Stage 2: Runtime

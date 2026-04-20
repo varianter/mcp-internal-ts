@@ -1,5 +1,5 @@
-import { readdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 
 const args = process.argv.slice(2).join(' ');
 
