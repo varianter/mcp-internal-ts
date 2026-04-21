@@ -89,6 +89,13 @@ export function registerEmailSignature(server: McpServer): void {
         uri: RESOURCE_URI,
         mimeType: RESOURCE_MIME_TYPE,
         text: loadWidgetHtml(),
+        _meta: {
+          ui: {
+            csp: {
+              resourceDomains: ['https://www.variant.no'],
+            },
+          },
+        },
       },
     ],
   }));
