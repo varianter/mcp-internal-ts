@@ -26,7 +26,7 @@ export function registerGetCvForConsultant(server: McpServer, loader: SecretsLoa
       description:
         "Fetch a consultant's full CV from FlowCase by name. Returns a structured Markdown summary of their profile, skills, work history, projects, education, certifications, and languages.",
       inputSchema: {
-        query: z.string().describe("Consultant's full name (e.g. 'Mikael Brevik')"),
+        query: z.string().describe("Consultant's full name"),
       },
     },
     async ({ query }) => {
@@ -48,7 +48,10 @@ export function registerGetCvForConsultant(server: McpServer, loader: SecretsLoa
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         log('error', 'flowcase-cv: failed to load secret', { error: msg });
-        return { content: [{ type: 'text', text: `Error: ${msg}` }], isError: true };
+        return {
+          content: [{ type: 'text', text: `Error: ${msg}` }],
+          isError: true,
+        };
       }
 
       log('info', 'flowcase-cv: fetching CV', { query, org });
@@ -58,7 +61,10 @@ export function registerGetCvForConsultant(server: McpServer, loader: SecretsLoa
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         log('error', 'flowcase-cv: fetch failed', { query, error: msg });
-        return { content: [{ type: 'text', text: `Error: ${msg}` }], isError: true };
+        return {
+          content: [{ type: 'text', text: `Error: ${msg}` }],
+          isError: true,
+        };
       }
     },
   );
@@ -110,12 +116,16 @@ async function fetchCV(apiKey: string, org: string, query: string): Promise<stri
   const cvURL = `${api}/v3/cvs/${hit.user_id}/${hit.id}`;
   const cv = await doRequest('GET', cvURL, auth, RawCVSchema);
 
-  return formatCV(cv, searchResp.cvs);
+  return formatCV(cv, hit, searchResp.cvs);
 }
 
 // ── Markdown formatter ─────────────────────────────────────────────────────────
 
-function formatCV(cv: RawCV, allHits: SearchResponse['cvs']): string {
+function formatCV(
+  cv: RawCV,
+  hit: SearchResponse['cvs'][number]['cv'],
+  allHits: SearchResponse['cvs'],
+): string {
   const lines: string[] = [];
 
   lines.push(`# ${cv.name ?? ''}`);
@@ -125,6 +135,10 @@ function formatCV(cv: RawCV, allHits: SearchResponse['cvs']): string {
   if (title) lines.push(`**Title:** ${title}  `);
 
   if (cv.email) lines.push(`**Email:** ${cv.email}  `);
+  if (cv.telefon) lines.push(`**Phone:** ${cv.telefon}  `);
+  const nationality = textString(cv.nationality);
+  if (nationality) lines.push(`**Nationality:** ${nationality}  `);
+  if (hit.country_code) lines.push(`**Country:** ${hit.country_code.toUpperCase()}  `);
 
   const bornYear = parseIntField(cv.born_year);
   if (bornYear !== null) lines.push(`**Born:** ${bornYear}  `);

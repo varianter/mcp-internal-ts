@@ -96,6 +96,7 @@ export const SearchCVSchema = z.object({
   email: z.string(),
   default: z.boolean().optional(),
   title: z.unknown(), // Text (localised or plain string)
+  country_code: z.string().optional(),
 });
 
 export const SearchHitSchema = z.object({
@@ -198,6 +199,8 @@ export const RawCourseSchema = z.object({
 export const RawCVSchema = z.object({
   name: z.string().optional(),
   email: z.string().optional(),
+  telefon: z.string().optional(),
+  nationality: z.unknown().optional(),
   title: z.unknown().optional(),
   born_year: z.unknown().optional(),
   key_qualifications: z.array(RawKeyQualificationSchema).optional(),
