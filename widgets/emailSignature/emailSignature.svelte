@@ -54,34 +54,26 @@ const hasAddress = $derived(addressLine1 || addressLine2);
 const hasContent = $derived(name.length > 0);
 
 function buildSignatureHtml(): string {
-  const nameLine = `<div style="font-weight:600;margin:0;">${name}</div>`;
-  const titleLine = title ? `<div style="margin:0;">${title}</div>` : '';
-  const companyLine = company ? `<div style="margin:0;">${company}</div>` : '';
-  const phoneLine = phone ? `<div style="margin:0;">${phone}</div>` : '';
-  const urlLine = url ? `<div style="margin:0;">${url}</div>` : '';
-  const addressSection = hasAddress
-    ? `<div style="margin:0;color:#555;border-top:1px solid #ccc;padding-top:10px;margin-top:10px;">
-        ${addressLine1 ? `<div style="margin:0;">${addressLine1}</div>` : ''}
-        ${addressLine2 ? `<div style="margin:0;">${addressLine2}</div>` : ''}
-      </div>`
-    : '';
+  const lines: string[] = [];
 
-  return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222424;line-height:1.5;">
-  ${greeting ? `<div style="margin:0 0 14px 0;">${greeting}</div>` : ''}
-  <div style="margin:0 0 10px 0;">
-    ${nameLine}
-    ${titleLine}
-    ${companyLine}
-  </div>
-  <div style="margin:0 0 10px 0;">
-    ${phoneLine}
-    ${urlLine}
-  </div>
-  ${addressSection}
-  <div style="margin-top:14px;">
-    <img src="${LOGO_DATA_URI}" alt="${company || 'Variant'}" width="120" style="display:block;" />
-  </div>
-</div>`;
+  if (greeting) lines.push(greeting, '<br>');
+  lines.push(`<strong>${name}</strong>`);
+  if (title) lines.push(title);
+  if (company) lines.push(company);
+  if (phone || url) lines.push('<br>');
+  if (phone) lines.push(phone);
+  if (url) lines.push(url);
+  if (hasAddress) {
+    lines.push('<br>––<br>');
+    if (addressLine1) lines.push(addressLine1);
+    if (addressLine2) lines.push(addressLine2);
+  }
+  lines.push('<br>');
+  lines.push(
+    `<img src="${LOGO_DATA_URI}" alt="${company || 'Variant'}" width="120" style="display:block;" />`,
+  );
+
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222424;line-height:1.5;">${lines.join('<br>')}</div>`;
 }
 
 async function copyHtml() {
